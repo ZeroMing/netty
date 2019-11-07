@@ -49,15 +49,23 @@ public final class EchoServer {
         }
 
         // Configure the server.
+        // (1) 处理I/O操作的事件循环器 (其实是个线程池)。boss组。负责接收已到达的 connection
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
+        // 工作轮询线程组。worker组。当 boss接收到connection并把它注册到worker后，worker就可以处理connection上的数据通信。
         EventLoopGroup workerGroup = new NioEventLoopGroup();
+        // 回声处理器
         final EchoServerHandler serverHandler = new EchoServerHandler();
         try {
+            // (2) ServerBootstrap 是用来搭建 server 的协助类
             ServerBootstrap b = new ServerBootstrap();
             b.group(bossGroup, workerGroup)
+              // (3) 用来初始化一个新的Channel去接收到达的connection。这里面使用了工厂模式，反射
              .channel(NioServerSocketChannel.class)
-             .option(ChannelOption.SO_BACKLOG, 100)
+             // 日志处理器。handler是boss轮询线程组的处理器
              .handler(new LoggingHandler(LogLevel.INFO))
+              // (4) ChannelInitializer是一个特殊的 handler，帮助开发者配置Channel，而多数情况下你会配置Channel下的ChannelPipeline，
+              // 往 pipeline 添加一些 handler (例如DiscardServerHandler) 从而实现你的应用逻辑。
+              // 当你的应用变得复杂，你可能会向 pipeline 添加更多的 handler，并把这里的匿名类抽取出来作为一个单独的类。
              .childHandler(new ChannelInitializer<SocketChannel>() {
                  @Override
                  public void initChannel(SocketChannel ch) throws Exception {
@@ -68,11 +76,14 @@ public final class EchoServer {
                      //p.addLast(new LoggingHandler(LogLevel.INFO));
                      p.addLast(serverHandler);
                  }
-             });
+             })
+              // (5) 你可以给Channel配置特有的参数。这里我们写的是 TCP/IP 服务器，所以可以配置一些 socket 选项，例如 tcpNoDeply 和 keepAlive。请参考ChannelOption和ChannelConfig文档来获取更多可用的 Channel 配置选项
+             .option(ChannelOption.SO_BACKLOG, 100)
+              // (6) option()用来配置NioServerSocketChannel(负责接收到来的connection)，而childOption()是用来配置被ServerChannel(这里是NioServerSocketChannel) 所接收的Channel
+             .childOption(ChannelOption.SO_KEEPALIVE, true);
 
-            // Start the server.
+            // (7) Start the server.
             ChannelFuture f = b.bind(PORT).sync();
-
             // Wait until the server socket is closed.
             f.channel().closeFuture().sync();
         } finally {

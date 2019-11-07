@@ -30,7 +30,11 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public abstract class MultithreadEventExecutorGroup extends AbstractEventExecutorGroup {
 
+    /**
+     * 维护的一个EventExecutor数组
+     */
     private final EventExecutor[] children;
+    // 只读
     private final Set<EventExecutor> readonlyChildren;
     private final AtomicInteger terminatedChildren = new AtomicInteger();
     private final Promise<?> terminationFuture = new DefaultPromise(GlobalEventExecutor.INSTANCE);
@@ -55,11 +59,18 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
      * @param args              arguments which will passed to each {@link #newChild(Executor, Object...)} call
      */
     protected MultithreadEventExecutorGroup(int nThreads, Executor executor, Object... args) {
+        // 默认的 事件执行器选择工厂
         this(nThreads, executor, DefaultEventExecutorChooserFactory.INSTANCE, args);
     }
 
     /**
      * Create a new instance.
+     * , MultithreadEventExecutorGroup 内部维护了一个 EventExecutor 数组,
+     * Netty 的 EventLoopGroup 的实现机制其实就建立在 MultithreadEventExecutorGroup 之上.
+     * 每当 Netty 需要一个 EventLoop 时, 会调用 next() 方法获取一个可用的 EventLoop.
+     *
+     *
+     *
      *
      * @param nThreads          the number of threads that will be used by this instance.
      * @param executor          the Executor to use, or {@code null} if the default should be used.
@@ -68,34 +79,43 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
      */
     protected MultithreadEventExecutorGroup(int nThreads, Executor executor,
                                             EventExecutorChooserFactory chooserFactory, Object... args) {
+
+        // 线程数不为0，最小为1
         if (nThreads <= 0) {
             throw new IllegalArgumentException(String.format("nThreads: %d (expected: > 0)", nThreads));
         }
 
+        // 如果执行器为空，创建一个线程执行器
         if (executor == null) {
             executor = new ThreadPerTaskExecutor(newDefaultThreadFactory());
         }
 
+        // 工作线程集合，即线程池
         children = new EventExecutor[nThreads];
-
+        // 循环创建
         for (int i = 0; i < nThreads; i ++) {
             boolean success = false;
             try {
+                // 创建子执行器
                 children[i] = newChild(executor, args);
                 success = true;
             } catch (Exception e) {
                 // TODO: Think about if this is a good exception type
                 throw new IllegalStateException("failed to create a child event loop", e);
             } finally {
+                // 如果创建失败
                 if (!success) {
+                    // 优雅关闭之前创建成功
                     for (int j = 0; j < i; j ++) {
                         children[j].shutdownGracefully();
                     }
-
+                    // 等待结束
                     for (int j = 0; j < i; j ++) {
                         EventExecutor e = children[j];
                         try {
+                            // 当关闭请求被调用后，当且仅当该事件执行器里的所有任务都被执行完成后，才处于结束状态
                             while (!e.isTerminated()) {
+                                // 当超时、关闭请求或者当前线程被中断情况发生之后，会一直阻塞，直到所有的任务都被执行完
                                 e.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);
                             }
                         } catch (InterruptedException interrupted) {
@@ -108,6 +128,12 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
             }
         }
 
+        /*
+         根据 nThreads 的大小, 创建不同的 Chooser,
+         即如果 nThreads 是 2 的幂, 则使用 PowerOfTwoEventExecutorChooser,
+         反之使用 GenericEventExecutorChooser.
+         不论使用哪个 Chooser, 它们的功能都是一样的, 即从 children 数组中选出一个合适的 EventExecutor 实例.
+        */
         chooser = chooserFactory.newChooser(children);
 
         final FutureListener<Object> terminationListener = new FutureListener<Object>() {
@@ -123,8 +149,10 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
             e.terminationFuture().addListener(terminationListener);
         }
 
+        // 工作执行器被放入LikedList
         Set<EventExecutor> childrenSet = new LinkedHashSet<EventExecutor>(children.length);
         Collections.addAll(childrenSet, children);
+        // 只读，不可修改
         readonlyChildren = Collections.unmodifiableSet(childrenSet);
     }
 

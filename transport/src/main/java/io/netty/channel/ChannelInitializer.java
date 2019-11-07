@@ -60,8 +60,14 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
             new ConcurrentHashMap<ChannelHandlerContext, Boolean>());
 
     /**
-     * This method will be called once the {@link Channel} was registered. After the method returns this instance
+     * This method will be called once the {@link Channel} was registered.
+     * After the method returns this instance
      * will be removed from the {@link ChannelPipeline} of the {@link Channel}.
+     *
+     * 方法只是被调用一次，当该方法执行完毕之后，该实例会从ChannelPipeline中移除掉.
+     *
+     * 不能使用private修饰符，也不宜使用默认修饰符（default）。default意味着只能在同一个包下才可以访问。
+     * 抽象方法最好设置成protected。可以使用public和protected，大多数情况下都是使用public
      *
      * @param ch            the {@link Channel} which was registered.
      * @throws Exception    is thrown if an error occurs. In that case it will be handled by
@@ -70,6 +76,12 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
      */
     protected abstract void initChannel(C ch) throws Exception;
 
+
+    /**
+     * 注册
+     * @param ctx
+     * @throws Exception
+     */
     @Override
     @SuppressWarnings("unchecked")
     public final void channelRegistered(ChannelHandlerContext ctx) throws Exception {
@@ -104,6 +116,7 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
      */
     @Override
     public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
+        //
         if (ctx.channel().isRegistered()) {
             // This should always be true with our current DefaultChannelPipeline implementation.
             // The good thing about calling initChannel(...) in handlerAdded(...) is that there will be no ordering
@@ -122,18 +135,28 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
         initMap.remove(ctx);
     }
 
+
+    /**
+     * 初始化通道
+     * @param ctx
+     * @return
+     * @throws Exception
+     */
     @SuppressWarnings("unchecked")
     private boolean initChannel(ChannelHandlerContext ctx) throws Exception {
         if (initMap.add(ctx)) { // Guard against re-entrance.
             try {
-                initChannel((C) ctx.channel());
+                initChannel((C) ctx.channel()); //调用子类重写的 initChannel
             } catch (Throwable cause) {
                 // Explicitly call exceptionCaught(...) as we removed the handler before calling initChannel(...).
                 // We do so to prevent multiple calls to initChannel(...).
                 exceptionCaught(ctx, cause);
             } finally {
+                //获取管道
                 ChannelPipeline pipeline = ctx.pipeline();
+                //管道中包含当前 ChannelInitializer
                 if (pipeline.context(this) != null) {
+                    //将ChannelInitializer从pipeline中移除
                     pipeline.remove(this);
                 }
             }
@@ -142,6 +165,10 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
         return false;
     }
 
+    /**
+     * 移除
+     * @param ctx
+     */
     private void removeState(final ChannelHandlerContext ctx) {
         // The removal may happen in an async fashion if the EventExecutor we use does something funky.
         if (ctx.isRemoved()) {

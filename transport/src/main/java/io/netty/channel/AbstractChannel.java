@@ -80,9 +80,13 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
      *        the parent of this channel. {@code null} if there's no parent.
      */
     protected AbstractChannel(Channel parent) {
+        // parent为null
         this.parent = parent;
+        // 唯一ID
         id = newId();
+        // unsafe 通过 newUnsafe() 实例化一个 unsafe 对象, 它的类型是 AbstractNioByteChannel.NioByteUnsafe 内部类
         unsafe = newUnsafe();
+        // Each channel has its own pipeline and it is created automatically when a new channel is created.
         pipeline = newChannelPipeline();
     }
 
@@ -462,13 +466,17 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
         @Override
         public final void register(EventLoop eventLoop, final ChannelPromise promise) {
+
+            // 事件循环不为空
             if (eventLoop == null) {
                 throw new NullPointerException("eventLoop");
             }
+
             if (isRegistered()) {
                 promise.setFailure(new IllegalStateException("registered to an event loop already"));
                 return;
             }
+
             if (!isCompatible(eventLoop)) {
                 promise.setFailure(
                         new IllegalStateException("incompatible event loop type: " + eventLoop.getClass().getName()));
@@ -478,12 +486,15 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             AbstractChannel.this.eventLoop = eventLoop;
 
             if (eventLoop.inEventLoop()) {
+                // 将 event
                 register0(promise);
             } else {
                 try {
+                    // 关联到
                     eventLoop.execute(new Runnable() {
                         @Override
                         public void run() {
+                            // 新的线程中执行
                             register0(promise);
                         }
                     });
@@ -500,12 +511,14 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
         private void register0(ChannelPromise promise) {
             try {
-                // check if the channel is still open as it could be closed in the mean time when the register
+                // check if the channel is still open as it could be closed in the mean time
+                // when the register
                 // call was outside of the eventLoop
                 if (!promise.setUncancellable() || !ensureOpen(promise)) {
                     return;
                 }
                 boolean firstRegistration = neverRegistered;
+                // 注册
                 doRegister();
                 neverRegistered = false;
                 registered = true;

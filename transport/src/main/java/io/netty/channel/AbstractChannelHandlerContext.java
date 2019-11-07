@@ -339,6 +339,7 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
     }
 
     static void invokeChannelRead(final AbstractChannelHandlerContext next, Object msg) {
+        // 找到主体
         final Object m = next.pipeline.touch(ObjectUtil.checkNotNull(msg, "msg"), next);
         EventExecutor executor = next.executor();
         if (executor.inEventLoop()) {
@@ -356,6 +357,7 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
     private void invokeChannelRead(Object msg) {
         if (invokeHandler()) {
             try {
+                // 入站事件触发
                 ((ChannelInboundHandler) handler()).channelRead(this, msg);
             } catch (Throwable t) {
                 notifyHandlerException(t);
@@ -374,12 +376,14 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
     static void invokeChannelReadComplete(final AbstractChannelHandlerContext next) {
         EventExecutor executor = next.executor();
         if (executor.inEventLoop()) {
+            // 直接回调
             next.invokeChannelReadComplete();
         } else {
             Tasks tasks = next.invokeTasks;
             if (tasks == null) {
                 next.invokeTasks = tasks = new Tasks(next);
             }
+            // 执行任务
             executor.execute(tasks.invokeChannelReadCompleteTask);
         }
     }
@@ -502,20 +506,23 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
     @Override
     public ChannelFuture connect(
             final SocketAddress remoteAddress, final SocketAddress localAddress, final ChannelPromise promise) {
-
+        // 远程地址为空，报错
         if (remoteAddress == null) {
             throw new NullPointerException("remoteAddress");
         }
+
         if (isNotValidPromise(promise, false)) {
             // cancelled
             return promise;
         }
 
+        // 上下文
         final AbstractChannelHandlerContext next = findContextOutbound();
         EventExecutor executor = next.executor();
         if (executor.inEventLoop()) {
             next.invokeConnect(remoteAddress, localAddress, promise);
         } else {
+            // 线程池创建线程执行
             safeExecute(executor, new Runnable() {
                 @Override
                 public void run() {
@@ -534,6 +541,7 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
                 notifyOutboundHandlerException(t, promise);
             }
         } else {
+            //
             connect(remoteAddress, localAddress, promise);
         }
     }
@@ -903,9 +911,10 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
 
     private AbstractChannelHandlerContext findContextInbound() {
         AbstractChannelHandlerContext ctx = this;
+        //循环查找
         do {
             ctx = ctx.next;
-        } while (!ctx.inbound);
+        } while (!ctx.inbound);  //直到找到inbound属性为true的AbstractChannelHandlerContext，返回
         return ctx;
     }
 

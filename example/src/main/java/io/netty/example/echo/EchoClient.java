@@ -24,6 +24,8 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.logging.LogLevel;
+import io.netty.handler.logging.LoggingHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
@@ -33,6 +35,10 @@ import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
  * data to the server.  Simply put, the echo client initiates the ping-pong
  * traffic between the echo client and server by sending the first message to
  * the server.
+ *
+ * 客户端
+ *
+ *
  */
 public final class EchoClient {
 
@@ -51,25 +57,38 @@ public final class EchoClient {
             sslCtx = null;
         }
 
-        // Configure the client.
+        // Configure the client.事件循环处理组
         EventLoopGroup group = new NioEventLoopGroup();
         try {
+            //客户端启动类
             Bootstrap b = new Bootstrap();
+
+            //设置EventLoopGroup
             b.group(group)
+                    //设置channelFactory。负责生产NioSocketChannel的工厂类。
              .channel(NioSocketChannel.class)
+                    //
              .option(ChannelOption.TCP_NODELAY, true)
+                    //添加处理器
              .handler(new ChannelInitializer<SocketChannel>() {
                  @Override
                  public void initChannel(SocketChannel ch) throws Exception {
                      ChannelPipeline p = ch.pipeline();
+                     //SSl配置开启
                      if (sslCtx != null) {
                          p.addLast(sslCtx.newHandler(ch.alloc(), HOST, PORT));
                      }
                      //p.addLast(new LoggingHandler(LogLevel.INFO));
+                     //p.addLast(new LoggingHandler(LogLevel.INFO));
                      p.addLast(new EchoClientHandler());
+                     //p.removeLast();
                  }
              });
 
+
+            /**
+             * 开始执行连接操作
+             */
             // Start the client.
             ChannelFuture f = b.connect(HOST, PORT).sync();
 

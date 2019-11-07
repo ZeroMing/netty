@@ -69,6 +69,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
      */
     @Override
     public ServerBootstrap group(EventLoopGroup group) {
+        // 设置Boss线程组和工作线程组
         return group(group, group);
     }
 
@@ -137,9 +138,15 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         return this;
     }
 
+    /**
+     * 初始化,继承自 ChannelInitializer
+     * @param channel
+     * @throws Exception
+     */
     @Override
     void init(Channel channel) throws Exception {
         final Map<ChannelOption<?>, Object> options = options0();
+        // 保证线程安全
         synchronized (options) {
             setChannelOptions(channel, options, logger);
         }
@@ -152,10 +159,11 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                 channel.attr(key).set(e.getValue());
             }
         }
-
+        // 获取管道
         ChannelPipeline p = channel.pipeline();
-
+        // 当前的子事件循环组
         final EventLoopGroup currentChildGroup = childGroup;
+        // 当前的子处理器
         final ChannelHandler currentChildHandler = childHandler;
         final Entry<ChannelOption<?>, Object>[] currentChildOptions;
         final Entry<AttributeKey<?>, Object>[] currentChildAttrs;
@@ -166,10 +174,13 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             currentChildAttrs = childAttrs.entrySet().toArray(newAttrArray(0));
         }
 
+
+        //管道中添加  ChannelInitializer
         p.addLast(new ChannelInitializer<Channel>() {
             @Override
             public void initChannel(final Channel ch) throws Exception {
                 final ChannelPipeline pipeline = ch.pipeline();
+                // Echo例子中就是 EchoServerHandler
                 ChannelHandler handler = config.handler();
                 if (handler != null) {
                     pipeline.addLast(handler);
@@ -178,6 +189,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                 ch.eventLoop().execute(new Runnable() {
                     @Override
                     public void run() {
+                        // 添加 ServerBootstrapAcceptor
                         pipeline.addLast(new ServerBootstrapAcceptor(
                                 ch, currentChildGroup, currentChildHandler, currentChildOptions, currentChildAttrs));
                     }
@@ -209,8 +221,14 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         return new Map.Entry[size];
     }
 
+    /**
+     * 服务启动接收器
+     * 父类初始化
+     * 接收器
+     */
     private static class ServerBootstrapAcceptor extends ChannelInboundHandlerAdapter {
 
+        //
         private final EventLoopGroup childGroup;
         private final ChannelHandler childHandler;
         private final Entry<ChannelOption<?>, Object>[] childOptions;
@@ -238,11 +256,18 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             };
         }
 
+        /**
+         * 重写read方法。读取新的连接
+         * @param ctx
+         * @param msg
+         */
         @Override
         @SuppressWarnings("unchecked")
         public void channelRead(ChannelHandlerContext ctx, Object msg) {
-            final Channel child = (Channel) msg;
 
+            // 读取channel
+            final Channel child = (Channel) msg;
+            // 将处理器添加到 pipeline
             child.pipeline().addLast(childHandler);
 
             setChannelOptions(child, childOptions, logger);
@@ -252,6 +277,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             }
 
             try {
+                //  工作线程 workerGroup  中的某个EventLoop 和 NioSocketChannel 关联
                 childGroup.register(child).addListener(new ChannelFutureListener() {
                     @Override
                     public void operationComplete(ChannelFuture future) throws Exception {

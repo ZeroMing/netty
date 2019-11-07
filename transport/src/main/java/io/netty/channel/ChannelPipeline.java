@@ -38,6 +38,7 @@ import java.util.NoSuchElementException;
  * <h3>Creation of a pipeline</h3>
  *
  * Each channel has its own pipeline and it is created automatically when a new channel is created.
+ * 每个通道都有它自己的管道，当一个新的通道被创建的时候，管道被自动创建。
  *
  * <h3>How an event flows in a pipeline</h3>
  *

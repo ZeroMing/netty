@@ -156,6 +156,15 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
                 this, command, null, ScheduledFutureTask.deadlineNanos(unit.toNanos(delay))));
     }
 
+    /**
+     * ☆☆☆☆☆
+     * 核心 执行任务调度队列
+     * @param callable
+     * @param delay
+     * @param unit
+     * @param <V>
+     * @return
+     */
     @Override
     public <V> ScheduledFuture<V> schedule(Callable<V> callable, long delay, TimeUnit unit) {
         ObjectUtil.checkNotNull(callable, "callable");
@@ -226,6 +235,7 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
     }
 
     <V> ScheduledFuture<V> schedule(final ScheduledFutureTask<V> task) {
+        // 如果在当前线程，直接新任务添加到任务调度队列中
         if (inEventLoop()) {
             scheduledTaskQueue().add(task);
         } else {

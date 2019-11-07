@@ -81,10 +81,14 @@ public abstract class AbstractNioChannel extends AbstractChannel {
      * @param readInterestOp    the ops to set to receive data from the {@link SelectableChannel}
      */
     protected AbstractNioChannel(Channel parent, SelectableChannel ch, int readInterestOp) {
+        // 显式调用父类的某构造器
         super(parent);
+        // 将ServerSocketChannel对象保存
         this.ch = ch;
+        // 设置关心的事件标志 readInterestOp = SelectionKey.OP_READ:
         this.readInterestOp = readInterestOp;
         try {
+            // 配置 Java NIO SocketChannel 为非阻塞的。如果不设置为false，启动多路复用器会报异常
             ch.configureBlocking(false);
         } catch (IOException e) {
             try {
@@ -215,6 +219,9 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         void forceFlush();
     }
 
+    /**
+     *  unsafe 特别关键, 它封装了对 Java 底层 Socket 的操作, 因此实际上是沟通 Netty 上层和 Java 底层的重要的桥梁
+     */
     protected abstract class AbstractNioUnsafe extends AbstractUnsafe implements NioUnsafe {
 
         protected final void removeReadOp() {
@@ -251,6 +258,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
                 }
 
                 boolean wasActive = isActive();
+                //  调用子类的 doConnect
                 if (doConnect(remoteAddress, localAddress)) {
                     fulfillConnectPromise(promise, wasActive);
                 } else {
@@ -263,7 +271,9 @@ public abstract class AbstractNioChannel extends AbstractChannel {
                         connectTimeoutFuture = eventLoop().schedule(new Runnable() {
                             @Override
                             public void run() {
+                                // 通道
                                 ChannelPromise connectPromise = AbstractNioChannel.this.connectPromise;
+                                // 连接超时异常
                                 ConnectTimeoutException cause =
                                         new ConnectTimeoutException("connection timed out: " + remoteAddress);
                                 if (connectPromise != null && connectPromise.tryFailure(cause)) {
@@ -378,11 +388,18 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         return loop instanceof NioEventLoop;
     }
 
+    /**
+     *
+     * 实际调用注册绑定
+     * @throws Exception
+     */
     @Override
     protected void doRegister() throws Exception {
         boolean selected = false;
         for (;;) {
             try {
+                // 将Channel注册到Selector,感兴趣的事件0，说明不设置感兴趣事件
+                // this 代表 NioServerScoketChannel
                 selectionKey = javaChannel().register(eventLoop().unwrappedSelector(), 0, this);
                 return;
             } catch (CancelledKeyException e) {

@@ -46,6 +46,9 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
                              implements io.netty.channel.socket.ServerSocketChannel {
 
     private static final ChannelMetadata METADATA = new ChannelMetadata(false, 16);
+    /**
+     * 默认的Selector的提供器
+     */
     private static final SelectorProvider DEFAULT_SELECTOR_PROVIDER = SelectorProvider.provider();
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(NioServerSocketChannel.class);
@@ -69,8 +72,13 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
 
     /**
      * Create a new instance
+     *
+     * 空构造器
+     *
+     *
      */
     public NioServerSocketChannel() {
+        //
         this(newSocket(DEFAULT_SELECTOR_PROVIDER));
     }
 
@@ -85,6 +93,14 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
      * Create a new instance using the given {@link ServerSocketChannel}.
      */
     public NioServerSocketChannel(ServerSocketChannel channel) {
+        /**
+         * 客户端的 Channel 初始化时, 传入的参数是 SelectionKey.OP_READ
+         * 服务端的 Channel 初始化时，传入的参数是 SelectionKey.OP_ACCEPT
+         * Java NIO 是一种 Reactor 模式, 我们通过 selector 来实现 I/O 的多路复用复用
+         * 在一开始时, 服务器端需要监听客户端的连接请求,
+         * 因此在这里我们设置了 SelectionKey.OP_ACCEPT, 即通知 selector 我们对客户端的连接请求感兴趣
+         */
+        // 注册可接收事件标志
         super(null, channel, SelectionKey.OP_ACCEPT);
         config = new NioServerSocketChannelConfig(this, javaChannel().socket());
     }
@@ -138,12 +154,23 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
         javaChannel().close();
     }
 
+
+    /**
+     * 其实当一个 client 连接到 server 时, Java 底层的 NIO ServerSocketChannel 会有一个
+     * SelectionKey.OP_ACCEPT 就绪事件,
+     * 接着就会调用到 NioServerSocketChannel.doReadMessages:
+     * @param buf
+     * @return
+     * @throws Exception
+     */
     @Override
     protected int doReadMessages(List<Object> buf) throws Exception {
+        //客户端新连接的 SocketChannel,
         SocketChannel ch = SocketUtils.accept(javaChannel());
 
         try {
             if (ch != null) {
+                // 实例化一个 NioSocketChannel, 并且传入 NioServerSocketChannel 对象(即 this)
                 buf.add(new NioSocketChannel(this, ch));
                 return 1;
             }
@@ -192,6 +219,9 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
         throw new UnsupportedOperationException();
     }
 
+    /**
+     * io.netty.channel.socket.nio.NioServerSocketChannel的内部类
+     */
     private final class NioServerSocketChannelConfig extends DefaultServerSocketChannelConfig {
         private NioServerSocketChannelConfig(NioServerSocketChannel channel, ServerSocket javaSocket) {
             super(channel, javaSocket);

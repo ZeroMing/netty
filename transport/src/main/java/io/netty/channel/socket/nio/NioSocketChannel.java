@@ -57,6 +57,11 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(NioSocketChannel.class);
     private static final SelectorProvider DEFAULT_SELECTOR_PROVIDER = SelectorProvider.provider();
 
+    /**
+     * 获取Socket连接channel
+     * @param provider
+     * @return
+     */
     private static SocketChannel newSocket(SelectorProvider provider) {
         try {
             /**
@@ -77,6 +82,7 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
      * Create a new instance
      */
     public NioSocketChannel() {
+
         this(DEFAULT_SELECTOR_PROVIDER);
     }
 
@@ -84,6 +90,7 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
      * Create a new instance using the given {@link SelectorProvider}.
      */
     public NioSocketChannel(SelectorProvider provider) {
+        //调用父类的构造器
         this(newSocket(provider));
     }
 
@@ -91,6 +98,9 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
      * Create a new instance using the given {@link SocketChannel}.
      */
     public NioSocketChannel(SocketChannel socket) {
+
+        //子类显式使用了this。则super(null,socket)会隐藏。如果没有显式调用父类的指定构造方法，而且super父类没有带参的构造方法时，默认调用父类的无参构造。
+        //这种情况下，调用父类的有参构造super(null,socket)
         this(null, socket);
     }
 
@@ -301,14 +311,26 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
         }
     }
 
+    /**
+     *
+     * Eden.Lee/李明
+     * 客户端建立连接的最终调用
+     *
+     * @param remoteAddress
+     * @param localAddress
+     * @return
+     * @throws Exception
+     */
     @Override
     protected boolean doConnect(SocketAddress remoteAddress, SocketAddress localAddress) throws Exception {
         if (localAddress != null) {
+            //绑定
             doBind0(localAddress);
         }
 
         boolean success = false;
         try {
+            //连接成功
             boolean connected = SocketUtils.connect(javaChannel(), remoteAddress);
             if (!connected) {
                 selectionKey().interestOps(SelectionKey.OP_CONNECT);
@@ -435,11 +457,18 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
         incompleteWrite(writeSpinCount < 0);
     }
 
+    /**
+     * 重写父类的方法。返回 NioSocketChannelUnsafe
+     * @return
+     */
     @Override
     protected AbstractNioUnsafe newUnsafe() {
         return new NioSocketChannelUnsafe();
     }
 
+    /**
+     *  unsafe 特别关键, 它封装了对 Java 底层 Socket 的操作, 因此实际上是沟通 Netty 上层和 Java 底层的重要的桥梁
+     */
     private final class NioSocketChannelUnsafe extends NioByteUnsafe {
         @Override
         protected Executor prepareToClose() {

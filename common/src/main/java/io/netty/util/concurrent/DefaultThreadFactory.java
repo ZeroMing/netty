@@ -67,7 +67,7 @@ public class DefaultThreadFactory implements ThreadFactory {
         if (poolType == null) {
             throw new NullPointerException("poolType");
         }
-
+        // 获取类的简单类名
         String poolName = StringUtil.simpleClassName(poolType);
         switch (poolName.length()) {
             case 0:
@@ -83,6 +83,13 @@ public class DefaultThreadFactory implements ThreadFactory {
         }
     }
 
+    /**
+     * 构造方法
+     * @param poolName 线程池名字
+     * @param daemon    是否守护线程
+     * @param priority  优先级
+     * @param threadGroup   所属线程组
+     */
     public DefaultThreadFactory(String poolName, boolean daemon, int priority, ThreadGroup threadGroup) {
         if (poolName == null) {
             throw new NullPointerException("poolName");

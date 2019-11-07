@@ -37,6 +37,7 @@
       <scope>compile</scope>
       <optional>true</optional>
     </dependency>
+
     <!-- All-in-one JAR -->
     <dependency>
       <groupId>${project.groupId}</groupId>
@@ -94,16 +95,22 @@
   </build>
 
   <profiles>
-    <!-- If the uber profile is used it will automatically fetch the missing native jar from maven and add it to the all jar as well. -->
+    <!-- If the uber profile is used it will automatically fetch the
+    missing native jar from maven and add it to the all jar as well. -->
     <profile>
       <id>uber-staging</id>
-      <repositories>
+
+      <!--
+      Eden>配置
+      -->
+
+      <!--<repositories>
         <repository>
           <id>staged-releases</id>
           <name>Staged Releases</name>
           <url>https://oss.sonatype.org/service/local/repositories/${stagingRepositoryId}/content/</url>
         </repository>
-      </repositories>
+      </repositories>-->
 
       <dependencies>
         <!-- Depend on all our native jars -->

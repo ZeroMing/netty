@@ -41,20 +41,26 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * {@link AbstractBootstrap} is a helper class that makes it easy to bootstrap a {@link Channel}. It support
- * method-chaining to provide an easy way to configure the {@link AbstractBootstrap}.
+ * {@link AbstractBootstrap} is a helper class that makes it easy to bootstrap a {@link Channel}.
+ * It support method-chaining to provide an easy way to configure the {@link AbstractBootstrap}.
  *
  * <p>When not used in a {@link ServerBootstrap} context, the {@link #bind()} methods are useful for connectionless
  * transports such as datagram (UDP).</p>
+ *
+ * 支持链式请求提供简单的方法去配置
+ *
  */
 public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C extends Channel> implements Cloneable {
 
+    // 事件循环组
     volatile EventLoopGroup group;
     @SuppressWarnings("deprecation")
+    // 通道工厂
     private volatile ChannelFactory<? extends C> channelFactory;
     private volatile SocketAddress localAddress;
     private final Map<ChannelOption<?>, Object> options = new LinkedHashMap<ChannelOption<?>, Object>();
     private final Map<AttributeKey<?>, Object> attrs = new LinkedHashMap<AttributeKey<?>, Object>();
+    // 通道处理器
     private volatile ChannelHandler handler;
 
     AbstractBootstrap() {
@@ -103,6 +109,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         if (channelClass == null) {
             throw new NullPointerException("channelClass");
         }
+        // channelFactory
         return channelFactory(new ReflectiveChannelFactory<C>(channelClass));
     }
 
@@ -279,6 +286,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     }
 
     private ChannelFuture doBind(final SocketAddress localAddress) {
+        // 初始化和注册
         final ChannelFuture regFuture = initAndRegister();
         final Channel channel = regFuture.channel();
         if (regFuture.cause() != null) {
@@ -288,6 +296,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         if (regFuture.isDone()) {
             // At this point we know that the registration was complete and successful.
             ChannelPromise promise = channel.newPromise();
+            // 绑定地址
             doBind0(regFuture, channel, localAddress, promise);
             return promise;
         } else {
@@ -314,10 +323,16 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         }
     }
 
+    /**
+     * 初始化和注册
+     * @return
+     */
     final ChannelFuture initAndRegister() {
         Channel channel = null;
         try {
+            // 工厂方法获取Channel实例
             channel = channelFactory.newChannel();
+            // 初始化Channel
             init(channel);
         } catch (Throwable t) {
             if (channel != null) {
@@ -330,6 +345,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             return new DefaultChannelPromise(new FailedChannel(), GlobalEventExecutor.INSTANCE).setFailure(t);
         }
 
+        //  注册
         ChannelFuture regFuture = config().group().register(channel);
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {

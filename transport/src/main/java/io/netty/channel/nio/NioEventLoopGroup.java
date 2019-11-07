@@ -121,6 +121,13 @@ public class NioEventLoopGroup extends MultithreadEventLoopGroup {
         }
     }
 
+    /**
+     * 创建相应的EventLoop
+     * @param executor
+     * @param args
+     * @return
+     * @throws Exception
+     */
     @Override
     protected EventLoop newChild(Executor executor, Object... args) throws Exception {
         return new NioEventLoop(this, executor, (SelectorProvider) args[0],

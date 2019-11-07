@@ -103,11 +103,15 @@
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java</artifactId>
     </dependency>
+
     <dependency>
       <groupId>${project.groupId}</groupId>
       <artifactId>${tcnative.artifactId}</artifactId>
-      <classifier>${tcnative.classifier}</classifier>
+      <version>2.0.3.Final</version>
+      <!--<classifier>${tcnative.classifier}</classifier>-->
     </dependency>
+
+
     <dependency>
       <groupId>${conscrypt.groupId}</groupId>
       <artifactId>${conscrypt.artifactId}</artifactId>
@@ -169,7 +173,14 @@
   <build>
     <plugins>
       <!-- run-example.sh invokes this plugin to launch an example. -->
-      <plugin>
+
+
+      <!--
+        Eden>修改
+      -->
+
+
+      <!--<plugin>
         <groupId>kr.motd.maven</groupId>
         <artifactId>exec-maven-plugin</artifactId>
         <configuration>
@@ -184,7 +195,7 @@
             ${exampleClass}
           </commandlineArgs>
         </configuration>
-      </plugin>
+      </plugin>-->
     </plugins>
   </build>
 </project>

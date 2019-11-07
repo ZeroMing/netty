@@ -89,14 +89,24 @@ public class DefaultChannelPipeline implements ChannelPipeline {
      */
     private boolean registered;
 
+    /**
+     * pipeline就是一个双向链表
+     * @param channel
+     */
     protected DefaultChannelPipeline(Channel channel) {
+        // 通道绑定channel对象
         this.channel = ObjectUtil.checkNotNull(channel, "channel");
         succeededFuture = new SucceededChannelFuture(channel, null);
         voidPromise =  new VoidChannelPromise(channel, true);
 
+        // 尾节点
         tail = new TailContext(this);
+        // 头节点
         head = new HeadContext(this);
-
+        /**
+         * 维护了一个以 AbstractChannelHandlerContext 为节点的双向链表。
+         * 这个链表是 Netty 实现 Pipeline 机制的关键.
+         */
         head.next = tail;
         tail.prev = head;
     }
@@ -397,8 +407,13 @@ public class DefaultChannelPipeline implements ChannelPipeline {
             cache.put(handlerType, name);
         }
 
-        // It's not very likely for a user to put more than one handler of the same type, but make sure to avoid
-        // any name conflicts.  Note that we don't cache the names generated here.
+        //CAS自旋。乐观锁。
+        /**
+         * 如果是同一个类型，名字最后的数字会递增。直到不发生冲突。
+         */
+
+        // It's not very likely for a user to put more than one handler of the same type,
+        // but make sure to avoidany name conflicts.  Note that we don't cache the names generated here.
         if (context0(name) != null) {
             String baseName = name.substring(0, name.length() - 1); // Strip the trailing '0'.
             for (int i = 1;; i ++) {
@@ -718,23 +733,28 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         return context0(name);
     }
 
+    /**
+     * 查询是否包含此 handler
+     * @param handler
+     * @return
+     */
     @Override
     public final ChannelHandlerContext context(ChannelHandler handler) {
         if (handler == null) {
             throw new NullPointerException("handler");
         }
-
+        //获取头节点的下一节点
         AbstractChannelHandlerContext ctx = head.next;
         for (;;) {
 
             if (ctx == null) {
                 return null;
             }
-
+            //循环查询
             if (ctx.handler() == handler) {
                 return ctx;
             }
-
+            //继续循环
             ctx = ctx.next;
         }
     }
@@ -927,6 +947,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     @Override
     public final ChannelPipeline fireChannelRead(Object msg) {
+        // 回调调用读取
         AbstractChannelHandlerContext.invokeChannelRead(head, msg);
         return this;
     }
@@ -1337,6 +1358,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
                 ChannelHandlerContext ctx,
                 SocketAddress remoteAddress, SocketAddress localAddress,
                 ChannelPromise promise) {
+            // 底层执行连接
             unsafe.connect(remoteAddress, localAddress, promise);
         }
 

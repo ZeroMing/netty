@@ -80,6 +80,7 @@ public abstract class AbstractOioMessageChannel extends AbstractOioChannel {
             readData = true;
             for (int i = 0; i < size; i++) {
                 readPending = false;
+                // 触发事件
                 pipeline.fireChannelRead(readBuf.get(i));
             }
             readBuf.clear();

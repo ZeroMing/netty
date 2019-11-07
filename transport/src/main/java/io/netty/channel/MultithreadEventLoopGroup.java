@@ -37,6 +37,8 @@ public abstract class MultithreadEventLoopGroup extends MultithreadEventExecutor
     private static final int DEFAULT_EVENT_LOOP_THREADS;
 
     static {
+        // 如果设置了io.netty.eventLoopThreads的值且大于1，则返回值，否则返回系统的处理器的核心数*2
+        // 这里只是默认推荐的配置，并不意味着【核心处理器*2】就是最优的配置。需要视场景而定
         DEFAULT_EVENT_LOOP_THREADS = Math.max(1, SystemPropertyUtil.getInt(
                 "io.netty.eventLoopThreads", NettyRuntime.availableProcessors() * 2));
 
