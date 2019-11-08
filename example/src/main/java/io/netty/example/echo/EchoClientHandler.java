@@ -34,19 +34,27 @@ public class EchoClientHandler extends ChannelInboundHandlerAdapter {
      */
     public EchoClientHandler() {
         firstMessage = Unpooled.buffer(EchoClient.SIZE);
-        for (int i = 0; i < firstMessage.capacity(); i ++) {
-            firstMessage.writeByte((byte) i);
+        int capacity = 1;
+        for (int i = 0; i < 256; i ++) {
+            firstMessage.writeByte((byte) capacity);
         }
     }
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) {
+        System.out.println("channel激活...");
         ctx.writeAndFlush(firstMessage);
+        System.out.println("客户端发送消息");
     }
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
-        ctx.write(msg);
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        System.out.println("接收到服务端的消息:"+msg.toString());
     }
 
     @Override
