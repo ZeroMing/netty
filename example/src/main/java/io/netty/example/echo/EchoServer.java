@@ -59,7 +59,8 @@ public final class EchoServer {
             // (2) ServerBootstrap 是用来搭建 server 的协助类
             ServerBootstrap b = new ServerBootstrap();
             b.group(bossGroup, workerGroup)
-              // (3) 用来初始化一个新的Channel去接收到达的connection。这里面使用了工厂模式，反射
+              // (3) 用来初始化一个新的Channel去接收到达的connection。这里面使用了工厂模式，
+                    // 反射创建一个通道工厂。ChannelFactory
              .channel(NioServerSocketChannel.class)
              // 日志处理器。handler是boss轮询线程组的处理器
              .handler(new LoggingHandler(LogLevel.INFO))
@@ -73,14 +74,18 @@ public final class EchoServer {
                      if (sslCtx != null) {
                          p.addLast(sslCtx.newHandler(ch.alloc()));
                      }
-                     //p.addLast(new LoggingHandler(LogLevel.INFO));
-                     p.addLast(serverHandler);
+                     // 添加自定义Handler
+                     //p.addLast(serverHandler);
+                     //p.addLast(new ChatServerHandler());
                  }
              })
-              // (5) 你可以给Channel配置特有的参数。这里我们写的是 TCP/IP 服务器，所以可以配置一些 socket 选项，例如 tcpNoDeply 和 keepAlive。请参考ChannelOption和ChannelConfig文档来获取更多可用的 Channel 配置选项
+                    // (5) 你可以给Channel配置特有的参数。
+                    // 这里我们写的是 TCP/IP 服务器，所以可以配置一些 socket 选项，
+                    // 例如 tcpNoDeply 和 keepAlive。
+                    // 请参考ChannelOption和ChannelConfig文档来获取更多可用的 Channel 配置选项
              .option(ChannelOption.SO_BACKLOG, 100)
               // (6) option()用来配置NioServerSocketChannel(负责接收到来的connection)，
-                    // 而childOption()是用来配置被ServerChannel(这里是NioServerSocketChannel) 所接收的Channel
+              // 而childOption()是用来配置被ServerChannel(这里是NioServerSocketChannel) 所接收的Channel
              .childOption(ChannelOption.SO_KEEPALIVE, true);
 
             // (7) Start the server.
