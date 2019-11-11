@@ -16,11 +16,7 @@
 package io.netty.example.echo;
 
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.ChannelPipeline;
-import io.netty.channel.EventLoopGroup;
+import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
@@ -39,6 +35,7 @@ public final class EchoServer {
     static final int PORT = Integer.parseInt(System.getProperty("port", "8007"));
 
     public static void main(String[] args) throws Exception {
+        @SuppressWarnings("重复代码")
         // Configure SSL.
         final SslContext sslCtx;
         if (SSL) {
@@ -51,9 +48,9 @@ public final class EchoServer {
         // Configure the server.
         // (1) 处理I/O操作的事件循环器 (其实是个线程池)。boss组。负责接收已到达的connection
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
-        // 工作轮询线程组。worker组。当boss接收到connection并把它注册到worker后，worker就可以处理connection上的数据通信。
+        // 工作轮询线程组。worker组。当boss接收到connection并把它注册到worker后，worker就可以处理connection上的数据通信
         EventLoopGroup workerGroup = new NioEventLoopGroup();
-        // 回声处理器
+        // 自定义回声处理器
         final EchoServerHandler serverHandler = new EchoServerHandler();
         try {
             // (2) ServerBootstrap 是用来搭建 server 的协助类
@@ -79,13 +76,11 @@ public final class EchoServer {
              })
               // (5) 你可以给Channel配置特有的参数。这里我们写的是 TCP/IP 服务器，所以可以配置一些 socket 选项，例如 tcpNoDeply 和 keepAlive。请参考ChannelOption和ChannelConfig文档来获取更多可用的 Channel 配置选项
              .option(ChannelOption.SO_BACKLOG, 100)
-              // (6) option()用来配置NioServerSocketChannel(负责接收到来的connection)，
-                    // 而childOption()是用来配置被ServerChannel(这里是NioServerSocketChannel) 所接收的Channel
+              // (6) option()用来配置NioServerSocketChannel(负责接收到来的connection)，而childOption()是用来配置被ServerChannel(这里是NioServerSocketChannel) 所接收的Channel
              .childOption(ChannelOption.SO_KEEPALIVE, true);
-
-            // (7) Start the server.
+            // (7) 绑定端口，启动服务。
             ChannelFuture f = b.bind(PORT).sync();
-            // Wait until the server socket is closed.
+            // 等待直到服务端Socket套接字关闭
             f.channel().closeFuture().sync();
         } finally {
             // Shut down all event loops to terminate all threads.

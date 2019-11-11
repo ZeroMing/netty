@@ -163,6 +163,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
     @Override
     public EventLoop eventLoop() {
         EventLoop eventLoop = this.eventLoop;
+        // Channel未被注册到事件循环器
         if (eventLoop == null) {
             throw new IllegalStateException("channel not registered to an event loop");
         }
@@ -260,6 +261,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
     @Override
     public ChannelFuture bind(SocketAddress localAddress, ChannelPromise promise) {
+        // 管道绑定
         return pipeline.bind(localAddress, promise);
     }
 
@@ -464,6 +466,12 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             return remoteAddress0();
         }
 
+        /**
+         * ☆☆☆☆☆
+         * 核心注册方法
+         * @param eventLoop
+         * @param promise
+         */
         @Override
         public final void register(EventLoop eventLoop, final ChannelPromise promise) {
 
@@ -486,15 +494,14 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             AbstractChannel.this.eventLoop = eventLoop;
 
             if (eventLoop.inEventLoop()) {
-                // 将 event
+                // 直接注册
                 register0(promise);
             } else {
                 try {
-                    // 关联到
+                    // 单独开启一个线程去注册
                     eventLoop.execute(new Runnable() {
                         @Override
                         public void run() {
-                            // 新的线程中执行
                             register0(promise);
                         }
                     });
@@ -514,11 +521,12 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 // check if the channel is still open as it could be closed in the mean time
                 // when the register
                 // call was outside of the eventLoop
+                // 检查通道是否开启，因为当注册去被调用在事件循环器之外，是可以被关闭的
                 if (!promise.setUncancellable() || !ensureOpen(promise)) {
                     return;
                 }
                 boolean firstRegistration = neverRegistered;
-                // 注册
+                // 模板方法设计模式，由子类去实现具体的逻辑
                 doRegister();
                 neverRegistered = false;
                 registered = true;
@@ -528,11 +536,13 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 pipeline.invokeHandlerAddedIfNeeded();
 
                 safeSetSuccess(promise);
+                // 触发 ChannelRegistered 事件回调
                 pipeline.fireChannelRegistered();
                 // Only fire a channelActive if the channel has never been registered. This prevents firing
                 // multiple channel actives if the channel is deregistered and re-registered.
                 if (isActive()) {
                     if (firstRegistration) {
+                        // 触发ChannelActive事件
                         pipeline.fireChannelActive();
                     } else if (config().isAutoRead()) {
                         // This channel was registered before and autoRead() is set. This means we need to begin read
@@ -1106,6 +1116,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
      * Is called after the {@link Channel} is registered with its {@link EventLoop} as part of the register process.
      *
      * Sub-classes may override this method
+     *
      */
     protected void doRegister() throws Exception {
         // NOOP

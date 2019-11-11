@@ -278,7 +278,9 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * Create a new {@link Channel} and bind it.
      */
     public ChannelFuture bind(SocketAddress localAddress) {
+        // 校验 事件循环组不为空，Channel工厂不为空
         validate();
+        // 本地地址不为空
         if (localAddress == null) {
             throw new NullPointerException("localAddress");
         }
@@ -289,19 +291,24 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         // 初始化和注册
         final ChannelFuture regFuture = initAndRegister();
         final Channel channel = regFuture.channel();
+        // 当目前处理未完成状态或者已经成功完成，返回null；不为空，说明出现异常，直接返回
         if (regFuture.cause() != null) {
             return regFuture;
         }
 
+        // 处理完成情况:可能是正常的结束或者出现异常或者被取消。上面已经判断非异常状态。
         if (regFuture.isDone()) {
             // At this point we know that the registration was complete and successful.
+            // 创建 Promise 承诺
             ChannelPromise promise = channel.newPromise();
             // 绑定地址
             doBind0(regFuture, channel, localAddress, promise);
             return promise;
         } else {
             // Registration future is almost always fulfilled already, but just in case it's not.
+            // 等待注册完成 承诺
             final PendingRegistrationPromise promise = new PendingRegistrationPromise(channel);
+            // 绑定监听
             regFuture.addListener(new ChannelFutureListener() {
                 @Override
                 public void operationComplete(ChannelFuture future) throws Exception {
@@ -332,7 +339,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         try {
             // 工厂方法获取Channel实例
             channel = channelFactory.newChannel();
-            // 初始化Channel
+            // 1. 初始化Channel
             init(channel);
         } catch (Throwable t) {
             if (channel != null) {
@@ -345,8 +352,10 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             return new DefaultChannelPromise(new FailedChannel(), GlobalEventExecutor.INSTANCE).setFailure(t);
         }
 
-        //  注册
+
+        //  2. 开始注册，将Channel注册到事件循环组上
         ChannelFuture regFuture = config().group().register(channel);
+        // 未发生异常错误
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {
                 channel.close();
@@ -369,6 +378,14 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
     abstract void init(Channel channel) throws Exception;
 
+    /**
+     * ☆☆☆☆☆
+     * 核心绑定事件
+     * @param regFuture
+     * @param channel
+     * @param localAddress
+     * @param promise
+     */
     private static void doBind0(
             final ChannelFuture regFuture, final Channel channel,
             final SocketAddress localAddress, final ChannelPromise promise) {
@@ -379,6 +396,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             @Override
             public void run() {
                 if (regFuture.isSuccess()) {
+                    // 绑定
                     channel.bind(localAddress, promise).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
                 } else {
                     promise.setFailure(regFuture.cause());

@@ -39,6 +39,7 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
         implements ChannelHandlerContext, ResourceLeakHint {
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(AbstractChannelHandlerContext.class);
+    // ChannelHandlerContext 上下文
     volatile AbstractChannelHandlerContext next;
     volatile AbstractChannelHandlerContext prev;
 
@@ -463,6 +464,7 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
 
     @Override
     public ChannelFuture bind(final SocketAddress localAddress, final ChannelPromise promise) {
+
         if (localAddress == null) {
             throw new NullPointerException("localAddress");
         }
@@ -470,15 +472,18 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
             // cancelled
             return promise;
         }
-
+        // 出站上下文
         final AbstractChannelHandlerContext next = findContextOutbound();
+        // 事件执行器
         EventExecutor executor = next.executor();
+        // 如果执行器的线程就是当前线程，那么直接执行即可
         if (executor.inEventLoop()) {
             next.invokeBind(localAddress, promise);
         } else {
             safeExecute(executor, new Runnable() {
                 @Override
                 public void run() {
+                    // 新开启一个线程去执行
                     next.invokeBind(localAddress, promise);
                 }
             }, promise, null);
@@ -487,6 +492,9 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
     }
 
     private void invokeBind(SocketAddress localAddress, ChannelPromise promise) {
+        // 尽最大努力检测是否调用了ChannelHandler#handlerAdded。如果没有返回false，如果调用或无法检测到返回true。
+        // 如果这个方法返回false，我们将不会调用ChannelHandler，而是转发事件。这是必要的，因为DefaultChannelPipeline可能已经将ChannelHandler放入了链表中
+        // 但未调用ChannelHandler#handlerAdded。
         if (invokeHandler()) {
             try {
                 ((ChannelOutboundHandler) handler()).bind(this, localAddress, promise);
@@ -494,6 +502,7 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
                 notifyOutboundHandlerException(t, promise);
             }
         } else {
+            // 转发事件
             bind(localAddress, promise);
         }
     }

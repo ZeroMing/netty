@@ -211,13 +211,16 @@ public class DefaultPromise<V> extends AbstractFuture<V> implements Promise<V> {
         if (Thread.interrupted()) {
             throw new InterruptedException(toString());
         }
-
+        // 检查死锁
         checkDeadLock();
-
+        // 同步操作
         synchronized (this) {
+            // 如果未完成
             while (!isDone()) {
+                // 最大值 32767
                 incWaiters();
                 try {
+                    // 阻塞调用，调用完成之后，--操作
                     wait();
                 } finally {
                     decWaiters();

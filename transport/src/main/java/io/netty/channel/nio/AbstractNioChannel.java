@@ -389,17 +389,20 @@ public abstract class AbstractNioChannel extends AbstractChannel {
     }
 
     /**
-     *
-     * 实际调用注册绑定
+     * ☆☆☆☆☆
+     * NIO 实际调用注册绑定
      * @throws Exception
      */
     @Override
     protected void doRegister() throws Exception {
         boolean selected = false;
+        // 循环
         for (;;) {
             try {
                 // 将Channel注册到Selector,感兴趣的事件0，说明不设置感兴趣事件
                 // this 代表 NioServerScoketChannel
+                // SelectableChannel
+
                 selectionKey = javaChannel().register(eventLoop().unwrappedSelector(), 0, this);
                 return;
             } catch (CancelledKeyException e) {

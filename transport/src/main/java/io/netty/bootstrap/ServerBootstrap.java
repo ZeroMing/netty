@@ -159,7 +159,8 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                 channel.attr(key).set(e.getValue());
             }
         }
-        // 获取管道
+
+        // 通道与管道始终都是在一块的。获取管道
         ChannelPipeline p = channel.pipeline();
         // 当前的子事件循环组
         final EventLoopGroup currentChildGroup = childGroup;
@@ -174,18 +175,17 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             currentChildAttrs = childAttrs.entrySet().toArray(newAttrArray(0));
         }
 
-
-        //管道中添加  ChannelInitializer
+        //管道中添加  ChannelInitializer 初始化
         p.addLast(new ChannelInitializer<Channel>() {
             @Override
             public void initChannel(final Channel ch) throws Exception {
+                // 获取指定管道下的通道
                 final ChannelPipeline pipeline = ch.pipeline();
-                // Echo例子中就是 EchoServerHandler
                 ChannelHandler handler = config.handler();
                 if (handler != null) {
                     pipeline.addLast(handler);
                 }
-
+                // 指定下一个任务
                 ch.eventLoop().execute(new Runnable() {
                     @Override
                     public void run() {
@@ -257,7 +257,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         }
 
         /**
-         * 重写read方法。读取新的连接
+         * 读取新的连接
          * @param ctx
          * @param msg
          */

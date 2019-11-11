@@ -62,7 +62,6 @@ public final class EchoClient {
         try {
             //客户端启动类
             Bootstrap b = new Bootstrap();
-
             //设置EventLoopGroup
             b.group(group)
                     //设置channelFactory。负责生产NioSocketChannel的工厂类。
@@ -79,17 +78,11 @@ public final class EchoClient {
                          p.addLast(sslCtx.newHandler(ch.alloc(), HOST, PORT));
                      }
                      //p.addLast(new LoggingHandler(LogLevel.INFO));
-                     //p.addLast(new LoggingHandler(LogLevel.INFO));
                      p.addLast(new EchoClientHandler());
-                     //p.removeLast();
                  }
              });
 
-
-            /**
-             * 开始执行连接操作
-             */
-            // Start the client.
+            // 开始TCP的连接操作，如果是UDP，直接使用Bind()即可
             ChannelFuture f = b.connect(HOST, PORT).sync();
 
             // Wait until the connection is closed.
