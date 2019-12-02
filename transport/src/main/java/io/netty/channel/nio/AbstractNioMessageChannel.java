@@ -62,6 +62,7 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
      */
     private final class NioMessageUnsafe extends AbstractNioUnsafe {
 
+        // 多个读缓存集合
         private final List<Object> readBuf = new ArrayList<Object>();
 
         @Override
@@ -69,6 +70,7 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
             assert eventLoop().inEventLoop();
             final ChannelConfig config = config();
             final ChannelPipeline pipeline = pipeline();
+            // 声明缓存
             final RecvByteBufAllocator.Handle allocHandle = unsafe().recvBufAllocHandle();
             allocHandle.reset(config);
 
@@ -77,6 +79,7 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
             try {
                 try {
                     do {
+                        // 读缓存
                         int localRead = doReadMessages(readBuf);
                         if (localRead == 0) {
                             break;
@@ -95,6 +98,7 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
                 int size = readBuf.size();
                 for (int i = 0; i < size; i ++) {
                     readPending = false;
+                    // 在pipeline上传播ChannelRead事件
                     pipeline.fireChannelRead(readBuf.get(i));
                 }
                 readBuf.clear();

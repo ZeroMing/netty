@@ -109,7 +109,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         if (channelClass == null) {
             throw new NullPointerException("channelClass");
         }
-        // channelFactory
+        // 通道工厂 channelFactory
         return channelFactory(new ReflectiveChannelFactory<C>(channelClass));
     }
 

@@ -78,7 +78,7 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
      *
      */
     public NioServerSocketChannel() {
-        //
+        // 调用构造器
         this(newSocket(DEFAULT_SELECTOR_PROVIDER));
     }
 
@@ -100,8 +100,9 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
          * 在一开始时, 服务器端需要监听客户端的连接请求,
          * 因此在这里我们设置了 SelectionKey.OP_ACCEPT, 即通知 selector 我们对客户端的连接请求感兴趣
          */
-        // 注册可接收事件标志
+        // 服务端注册可接收事件标志
         super(null, channel, SelectionKey.OP_ACCEPT);
+        // 加载配置
         config = new NioServerSocketChannelConfig(this, javaChannel().socket());
     }
 

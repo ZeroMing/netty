@@ -17,6 +17,9 @@ package io.netty.channel;
 
 import io.netty.util.concurrent.EventExecutor;
 
+/**
+ * 默认的出站入站包裹器
+ */
 final class DefaultChannelHandlerContext extends AbstractChannelHandlerContext {
 
     private final ChannelHandler handler;
@@ -36,10 +39,12 @@ final class DefaultChannelHandlerContext extends AbstractChannelHandlerContext {
     }
 
     private static boolean isInbound(ChannelHandler handler) {
+        // 判断是否为入站处理器
         return handler instanceof ChannelInboundHandler;
     }
 
     private static boolean isOutbound(ChannelHandler handler) {
+        // 判断是否为出站处理器
         return handler instanceof ChannelOutboundHandler;
     }
 }

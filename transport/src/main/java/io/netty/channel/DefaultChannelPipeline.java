@@ -91,6 +91,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     /**
      * pipeline就是一个双向链表
+     *
      * @param channel
      */
     protected DefaultChannelPipeline(Channel channel) {
@@ -1039,6 +1040,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     @Override
     public final ChannelFuture write(Object msg) {
+        // 尾部开始传播
         return tail.write(msg);
     }
 
@@ -1261,9 +1263,15 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     }
 
     // A special catch-all handler that handles both bytes and messages.
+
+    /**
+     * 一个特殊的全捕获处理程序，它同时处理字节和消息。
+     * 尾处理器 为入站处理器
+     */
     final class TailContext extends AbstractChannelHandlerContext implements ChannelInboundHandler {
 
         TailContext(DefaultChannelPipeline pipeline) {
+            // 入站处理器
             super(pipeline, null, TAIL_NAME, true, false);
             setAddComplete();
         }
@@ -1321,6 +1329,9 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         }
     }
 
+    /**
+     * 头处理器为 出站处理器
+     */
     final class HeadContext extends AbstractChannelHandlerContext
             implements ChannelOutboundHandler, ChannelInboundHandler {
 
@@ -1416,7 +1427,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         @Override
         public void channelActive(ChannelHandlerContext ctx) {
             ctx.fireChannelActive();
-
+            // 获取是否启动读取
             readIfIsAutoRead();
         }
 
@@ -1439,6 +1450,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         private void readIfIsAutoRead() {
             if (channel.config().isAutoRead()) {
+                // 读取
                 channel.read();
             }
         }

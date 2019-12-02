@@ -399,10 +399,9 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         // 循环
         for (;;) {
             try {
-                // 将Channel注册到Selector,感兴趣的事件0，说明不设置感兴趣事件
+                // 将Channel注册到Selector,感兴趣的事件0，说明还没有设置OPT_ACCEPT事件
                 // this 代表 NioServerScoketChannel
                 // SelectableChannel
-
                 selectionKey = javaChannel().register(eventLoop().unwrappedSelector(), 0, this);
                 return;
             } catch (CancelledKeyException e) {
@@ -425,6 +424,10 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         eventLoop().cancel(selectionKey());
     }
 
+    /**
+     * 设置感兴趣事件
+     * @throws Exception
+     */
     @Override
     protected void doBeginRead() throws Exception {
         // Channel.read() or ChannelHandlerContext.read() was called

@@ -621,6 +621,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             i.remove();
 
             if (a instanceof AbstractNioChannel) {
+                // 处理选择的键
                 processSelectedKey(k, (AbstractNioChannel) a);
             } else {
                 @SuppressWarnings("unchecked")
@@ -733,7 +734,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
 
 
             // Also check for readOps of 0 to workaround possible JDK bug which may otherwise lead to a spin loop
-            // TODO 读事件和accept事件就绪。0空转BUG
+            // 读事件和accept事件就绪。0空转BUG
             if ((readyOps & (SelectionKey.OP_READ | SelectionKey.OP_ACCEPT)) != 0 || readyOps == 0) {
                 // 根据多态来实现不同类型Channel的相同API
                 unsafe.read();

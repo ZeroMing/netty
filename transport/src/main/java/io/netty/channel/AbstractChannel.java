@@ -525,6 +525,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 if (!promise.setUncancellable() || !ensureOpen(promise)) {
                     return;
                 }
+                // 第一次注册
                 boolean firstRegistration = neverRegistered;
                 // 模板方法设计模式，由子类去实现具体的逻辑
                 doRegister();
@@ -583,6 +584,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
             boolean wasActive = isActive();
             try {
+                // 绑定
                 doBind(localAddress);
             } catch (Throwable t) {
                 safeSetFailure(promise, t);
@@ -594,6 +596,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 invokeLater(new Runnable() {
                     @Override
                     public void run() {
+                        // 传播通道激活时间
                         pipeline.fireChannelActive();
                     }
                 });
@@ -872,6 +875,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             }
 
             try {
+                // 开始读取
                 doBeginRead();
             } catch (final Exception e) {
                 invokeLater(new Runnable() {

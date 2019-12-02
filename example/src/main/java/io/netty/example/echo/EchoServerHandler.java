@@ -15,9 +15,14 @@
  */
 package io.netty.example.echo;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.util.internal.StringUtil;
+
+import java.util.Scanner;
 
 /**
  * Handler implementation for the echo server.
@@ -33,12 +38,23 @@ public class EchoServerHandler extends ChannelInboundHandlerAdapter {
             e.printStackTrace();
         }
         System.out.println("接收到客户端信息:" + msg.toString());
-        ctx.write(msg);
     }
 
     @Override
     public void channelReadComplete(ChannelHandlerContext ctx) {
         ctx.flush();
+        System.out.println("继续输入想说的话: ");
+        Scanner scanner = new Scanner(System.in);
+        String nextMessage = scanner.next();
+        if(!StringUtil.isNullOrEmpty(nextMessage)){
+            byte[] bytes = nextMessage.getBytes();
+            ByteBuf buf = Unpooled.buffer(EchoClient.SIZE);
+            for(int i=0;i<bytes.length;i++){
+                buf.writeByte(bytes[i]);
+            }
+            ctx.writeAndFlush(buf);
+        }
+
     }
 
     @Override

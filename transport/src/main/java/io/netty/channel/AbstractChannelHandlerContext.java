@@ -86,7 +86,9 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
         this.name = ObjectUtil.checkNotNull(name, "name");
         this.pipeline = pipeline;
         this.executor = executor;
+        // 设置入站
         this.inbound = inbound;
+        // 设置出站
         this.outbound = outbound;
         // Its ordered if its driven by the EventLoop or the given Executor is an instanceof OrderedEventExecutor.
         ordered = executor == null || executor instanceof OrderedEventExecutor;
@@ -123,6 +125,7 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
 
     @Override
     public ChannelHandlerContext fireChannelRegistered() {
+        // 回调Channel注册事件
         invokeChannelRegistered(findContextInbound());
         return this;
     }
@@ -144,6 +147,8 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
     private void invokeChannelRegistered() {
         if (invokeHandler()) {
             try {
+                // 入站事件处理
+                // 处理入站事件 从head找到tail。属于顺序查找
                 ((ChannelInboundHandler) handler()).channelRegistered(this);
             } catch (Throwable t) {
                 notifyHandlerException(t);
@@ -462,6 +467,12 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
         return deregister(newPromise());
     }
 
+    /**
+     * 尾开始绑定
+     * @param localAddress
+     * @param promise
+     * @return
+     */
     @Override
     public ChannelFuture bind(final SocketAddress localAddress, final ChannelPromise promise) {
 
@@ -472,7 +483,7 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
             // cancelled
             return promise;
         }
-        // 出站上下文
+        // 从尾部开始查找出站处理器
         final AbstractChannelHandlerContext next = findContextOutbound();
         // 事件执行器
         EventExecutor executor = next.executor();
@@ -671,6 +682,7 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
 
     @Override
     public ChannelHandlerContext read() {
+        // 查找出站
         final AbstractChannelHandlerContext next = findContextOutbound();
         EventExecutor executor = next.executor();
         if (executor.inEventLoop()) {
@@ -689,6 +701,7 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
     private void invokeRead() {
         if (invokeHandler()) {
             try {
+                // 读取
                 ((ChannelOutboundHandler) handler()).read(this);
             } catch (Throwable t) {
                 notifyHandlerException(t);
@@ -920,7 +933,7 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
 
     private AbstractChannelHandlerContext findContextInbound() {
         AbstractChannelHandlerContext ctx = this;
-        //循环查找
+        // 处理入站事件 从head找到tail。属于顺序查找
         do {
             ctx = ctx.next;
         } while (!ctx.inbound);  //直到找到inbound属性为true的AbstractChannelHandlerContext，返回
