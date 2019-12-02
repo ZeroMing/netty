@@ -14,7 +14,6 @@
  * under the License.
  */
 package io.netty.example.echo;
-
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
@@ -29,6 +28,8 @@ import io.netty.handler.logging.LoggingHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
+
+import java.nio.ByteBuffer;
 
 /**
  * Sends one message when a connection is open and echoes back any received
@@ -56,19 +57,16 @@ public final class EchoClient {
         } else {
             sslCtx = null;
         }
-
-        // Configure the client.事件循环处理组
+        // (1) 创建事件循环处理组
         EventLoopGroup group = new NioEventLoopGroup();
         try {
-            //客户端启动类
+            // (2) 客户端启动类
             Bootstrap b = new Bootstrap();
             //设置EventLoopGroup
             b.group(group)
-                    //设置channelFactory。负责生产NioSocketChannel的工厂类。
+             // (3)设置channelFactory。负责生产NioSocketChannel的工厂类。
              .channel(NioSocketChannel.class)
-                    //
-             .option(ChannelOption.TCP_NODELAY, true)
-                    //添加处理器
+             // (4) 初始化ChannelInitializer，添加处理器
              .handler(new ChannelInitializer<SocketChannel>() {
                  @Override
                  public void initChannel(SocketChannel ch) throws Exception {
@@ -78,11 +76,15 @@ public final class EchoClient {
                          p.addLast(sslCtx.newHandler(ch.alloc(), HOST, PORT));
                      }
                      //p.addLast(new LoggingHandler(LogLevel.INFO));
+                     //p.addLast(new LoggingHandler(LogLevel.INFO));
                      p.addLast(new EchoClientHandler());
+                     //p.removeLast();
                  }
-             });
+             })
+            // (5) 配置 NioSocketChannel 的 socket 选项
+            .option(ChannelOption.TCP_NODELAY, true);
 
-            // 开始TCP的连接操作，如果是UDP，直接使用Bind()即可
+            // (6) Start the client.
             ChannelFuture f = b.connect(HOST, PORT).sync();
 
             // Wait until the connection is closed.

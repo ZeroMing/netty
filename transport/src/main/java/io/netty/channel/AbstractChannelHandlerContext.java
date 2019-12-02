@@ -530,19 +530,20 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
         if (remoteAddress == null) {
             throw new NullPointerException("remoteAddress");
         }
-
+        // 如果属于无效的ChannelFuture直接返回
         if (isNotValidPromise(promise, false)) {
             // cancelled
             return promise;
         }
 
-        // 上下文
+        // 获取绑定的上下文
         final AbstractChannelHandlerContext next = findContextOutbound();
         EventExecutor executor = next.executor();
+        // 如果属于当前 事件循环线程，直接执行
         if (executor.inEventLoop()) {
             next.invokeConnect(remoteAddress, localAddress, promise);
         } else {
-            // 线程池创建线程执行
+            // 否则线程池创建线程执行
             safeExecute(executor, new Runnable() {
                 @Override
                 public void run() {

@@ -105,6 +105,7 @@ public abstract class AbstractAddressResolver<T extends SocketAddress> implement
             @SuppressWarnings("unchecked")
             final T cast = (T) address;
             final Promise<T> promise = executor().newPromise();
+            // 真正解析地址
             doResolve(cast, promise);
             return promise;
         } catch (Exception e) {

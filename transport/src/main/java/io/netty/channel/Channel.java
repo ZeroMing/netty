@@ -260,8 +260,8 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
         void close(ChannelPromise promise);
 
         /**
-         * Closes the {@link Channel} immediately without firing any events.  Probably only useful
-         * when registration attempt failed.
+         * Closes the {@link Channel} immediately without firing any events.
+         * Probably only useful when registration attempt failed.
          */
         void closeForcibly();
 

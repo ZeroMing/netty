@@ -52,15 +52,16 @@ import java.util.Map;
  */
 public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C extends Channel> implements Cloneable {
 
-    // 事件循环组
+    // 父事件循环组
     volatile EventLoopGroup group;
     @SuppressWarnings("deprecation")
-    // 通道工厂
+    // 通道工厂类
     private volatile ChannelFactory<? extends C> channelFactory;
     private volatile SocketAddress localAddress;
+    // Socket配置项
     private final Map<ChannelOption<?>, Object> options = new LinkedHashMap<ChannelOption<?>, Object>();
     private final Map<AttributeKey<?>, Object> attrs = new LinkedHashMap<AttributeKey<?>, Object>();
-    // 通道处理器
+    // 服务端通道处理器
     private volatile ChannelHandler handler;
 
     AbstractBootstrap() {
@@ -104,12 +105,13 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * The {@link Class} which is used to create {@link Channel} instances from.
      * You either use this or {@link #channelFactory(io.netty.channel.ChannelFactory)} if your
      * {@link Channel} implementation has no no-args constructor.
+     *
      */
     public B channel(Class<? extends C> channelClass) {
         if (channelClass == null) {
             throw new NullPointerException("channelClass");
         }
-        // 通道工厂 channelFactory
+        // 反射构造channelFactory，必须有无参构造方法
         return channelFactory(new ReflectiveChannelFactory<C>(channelClass));
     }
 
@@ -255,6 +257,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
     /**
      * Create a new {@link Channel} and bind it.
+     * ☆☆☆☆☆ 核心绑定类
      */
     public ChannelFuture bind(int inetPort) {
         return bind(new InetSocketAddress(inetPort));
@@ -278,37 +281,40 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * Create a new {@link Channel} and bind it.
      */
     public ChannelFuture bind(SocketAddress localAddress) {
-        // 校验 事件循环组不为空，Channel工厂不为空
+        // 验证 childHandler、childGroup 不能为空
         validate();
-        // 本地地址不为空
         if (localAddress == null) {
             throw new NullPointerException("localAddress");
         }
         return doBind(localAddress);
     }
 
+    /**
+     * 流程分析：
+     * 1. 调用 #initAndRegister() 进行Channel的初始化和注册，返回ChannelPromise。
+     * 2. 判断回调是否完成。如果回调处理完成，我们调用 #newPromise(),返回新的DefaultChannelPromise。然后进行 doBind0()操作。
+     * 3. 如果未完成，
+     * @param localAddress
+     * @return
+     */
     private ChannelFuture doBind(final SocketAddress localAddress) {
         // 初始化和注册
         final ChannelFuture regFuture = initAndRegister();
         final Channel channel = regFuture.channel();
-        // 当目前处理未完成状态或者已经成功完成，返回null；不为空，说明出现异常，直接返回
         if (regFuture.cause() != null) {
             return regFuture;
         }
 
-        // 处理完成情况:可能是正常的结束或者出现异常或者被取消。上面已经判断非异常状态。
         if (regFuture.isDone()) {
             // At this point we know that the registration was complete and successful.
-            // 创建 Promise 承诺
             ChannelPromise promise = channel.newPromise();
             // 绑定地址
             doBind0(regFuture, channel, localAddress, promise);
             return promise;
         } else {
             // Registration future is almost always fulfilled already, but just in case it's not.
-            // 等待注册完成 承诺
+            // 创建一个新的等待注册ChannelPromise.
             final PendingRegistrationPromise promise = new PendingRegistrationPromise(channel);
-            // 绑定监听
             regFuture.addListener(new ChannelFutureListener() {
                 @Override
                 public void operationComplete(ChannelFuture future) throws Exception {
@@ -321,7 +327,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
                         // Registration was successful, so set the correct executor to use.
                         // See https://github.com/netty/netty/issues/2586
                         promise.registered();
-
+                        // 调用
                         doBind0(regFuture, channel, localAddress, promise);
                     }
                 }
@@ -339,7 +345,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         try {
             // 工厂方法获取Channel实例
             channel = channelFactory.newChannel();
-            // 1. 初始化Channel
+            // 初始化Channel。具体由子类去实现。
             init(channel);
         } catch (Throwable t) {
             if (channel != null) {
@@ -352,11 +358,10 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             return new DefaultChannelPromise(new FailedChannel(), GlobalEventExecutor.INSTANCE).setFailure(t);
         }
 
-
-        //  2. 开始注册，将Channel注册到事件循环组上
+        // 注册一个 Channel 到 事件循环器上，得到一个回调 ChannelPromise
         ChannelFuture regFuture = config().group().register(channel);
-        // 未发生异常错误
         if (regFuture.cause() != null) {
+            // 被注册
             if (channel.isRegistered()) {
                 channel.close();
             } else {
@@ -378,14 +383,6 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
     abstract void init(Channel channel) throws Exception;
 
-    /**
-     * ☆☆☆☆☆
-     * 核心绑定事件
-     * @param regFuture
-     * @param channel
-     * @param localAddress
-     * @param promise
-     */
     private static void doBind0(
             final ChannelFuture regFuture, final Channel channel,
             final SocketAddress localAddress, final ChannelPromise promise) {
@@ -396,7 +393,6 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             @Override
             public void run() {
                 if (regFuture.isSuccess()) {
-                    // 绑定
                     channel.bind(localAddress, promise).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
                 } else {
                     promise.setFailure(regFuture.cause());

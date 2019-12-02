@@ -38,16 +38,19 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * {@link Bootstrap} sub-class which allows easy bootstrap of {@link ServerChannel}
- *
+ * 更方便启动 ServerChannel
  */
 public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerChannel> {
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(ServerBootstrap.class);
-
+    /** channel相关socket配置项 */
     private final Map<ChannelOption<?>, Object> childOptions = new LinkedHashMap<ChannelOption<?>, Object>();
     private final Map<AttributeKey<?>, Object> childAttrs = new LinkedHashMap<AttributeKey<?>, Object>();
+    /** 启动配置项 */
     private final ServerBootstrapConfig config = new ServerBootstrapConfig(this);
+    /** 子事件循环组 */
     private volatile EventLoopGroup childGroup;
+    /** 子处理器 */
     private volatile ChannelHandler childHandler;
 
     public ServerBootstrap() { }
@@ -77,6 +80,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
      * Set the {@link EventLoopGroup} for the parent (acceptor) and the child (client). These
      * {@link EventLoopGroup}'s are used to handle all the events and IO for {@link ServerChannel} and
      * {@link Channel}'s.
+     * 父事件循环组其实就是【接收器】，用来接收连接。
      */
     public ServerBootstrap group(EventLoopGroup parentGroup, EventLoopGroup childGroup) {
         super.group(parentGroup);
@@ -94,12 +98,14 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
      * Allow to specify a {@link ChannelOption} which is used for the {@link Channel} instances once they get created
      * (after the acceptor accepted the {@link Channel}). Use a value of {@code null} to remove a previous set
      * {@link ChannelOption}.
+     * 对acceptor接收到Channel，进行Socket选项的配置，为空，就会将选项清除。
      */
     public <T> ServerBootstrap childOption(ChannelOption<T> childOption, T value) {
         if (childOption == null) {
             throw new NullPointerException("childOption");
         }
         if (value == null) {
+            // 保证线程安全
             synchronized (childOptions) {
                 childOptions.remove(childOption);
             }
@@ -128,7 +134,8 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
     }
 
     /**
-     * Set the {@link ChannelHandler} which is used to serve the request for the {@link Channel}'s.
+     * Set the {@link ChannelHandler} which is used to
+     * serve the request for the {@link Channel}'s.
      */
     public ServerBootstrap childHandler(ChannelHandler childHandler) {
         if (childHandler == null) {
@@ -159,10 +166,9 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                 channel.attr(key).set(e.getValue());
             }
         }
-
-        // 通道与管道始终都是在一块的。获取管道
+        // 获取通道的管道
         ChannelPipeline p = channel.pipeline();
-        // 当前的子事件循环组
+        // 当前的子事件循环组，final的目的是用于下文中，匿名内部类的调用
         final EventLoopGroup currentChildGroup = childGroup;
         // 当前的子处理器
         final ChannelHandler currentChildHandler = childHandler;
@@ -175,22 +181,22 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             currentChildAttrs = childAttrs.entrySet().toArray(newAttrArray(0));
         }
 
-        //  管道中添加  ChannelInitializer 初始化
+        // 向管道中添加 ChannelInitializer
         p.addLast(new ChannelInitializer<Channel>() {
             @Override
             public void initChannel(final Channel ch) throws Exception {
-                // 获取指定管道下的通道
+                // 获取管道
                 final ChannelPipeline pipeline = ch.pipeline();
+                // 此处获取到的是父Handler，而不是子Handler
                 ChannelHandler handler = config.handler();
                 if (handler != null) {
                     pipeline.addLast(handler);
                 }
-                // 指定接收器任务
+
                 ch.eventLoop().execute(new Runnable() {
                     @Override
                     public void run() {
-                        // 入站事件
-                        // 添加 ServerBootstrapAcceptor
+                        // 向管道中添加 ServerBootstrapAcceptor
                         pipeline.addLast(new ServerBootstrapAcceptor(
                                 ch, currentChildGroup, currentChildHandler, currentChildOptions, currentChildAttrs));
                     }
@@ -228,12 +234,13 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
      * 接收器
      */
     private static class ServerBootstrapAcceptor extends ChannelInboundHandlerAdapter {
-
-        //
+        // 子事件循环组
         private final EventLoopGroup childGroup;
+        // 子通道处理器
         private final ChannelHandler childHandler;
         private final Entry<ChannelOption<?>, Object>[] childOptions;
         private final Entry<AttributeKey<?>, Object>[] childAttrs;
+        // 开启自动读任务的线程
         private final Runnable enableAutoReadTask;
 
         ServerBootstrapAcceptor(
@@ -245,13 +252,15 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             this.childAttrs = childAttrs;
 
             // Task which is scheduled to re-enable auto-read.
-            // It's important to create this Runnable before we try to submit it as otherwise the URLClassLoader may
-            // not be able to load the class because of the file limit it already reached.
+            // It's important to create this Runnable before we try to submit it
+            // as otherwise the URLClassLoader may not be able to load the class
+            // because of the file limit it already reached.
             //
             // See https://github.com/netty/netty/issues/1328
             enableAutoReadTask = new Runnable() {
                 @Override
                 public void run() {
+                    // 开启自动读
                     channel.config().setAutoRead(true);
                 }
             };
@@ -278,10 +287,12 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             }
 
             try {
-                //  工作线程 workerGroup  中的某个EventLoop 和 NioSocketChannel 关联
+                // 工作线程组。将Channel注册到workerGroup中的某个EventLoop上
+                // 绑定监听
                 childGroup.register(child).addListener(new ChannelFutureListener() {
                     @Override
                     public void operationComplete(ChannelFuture future) throws Exception {
+                        // 注册不成功，强制关闭
                         if (!future.isSuccess()) {
                             forceClose(child, future.cause());
                         }
@@ -293,6 +304,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         }
 
         private static void forceClose(Channel child, Throwable t) {
+            // 强制关闭连接
             child.unsafe().closeForcibly();
             logger.warn("Failed to register an accepted channel: {}", child, t);
         }
@@ -300,14 +312,18 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         @Override
         public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
             final ChannelConfig config = ctx.channel().config();
+            // 自动读
             if (config.isAutoRead()) {
                 // stop accept new connections for 1 second to allow the channel to recover
                 // See https://github.com/netty/netty/issues/1328
+                // 当打开的文件描述符过多的时候，会停止接收新的连接1秒，去允许通道恢复
                 config.setAutoRead(false);
+                // 将 enableAutoReadTask 继续抛到 定时任务队列中，延迟1秒执行，继续调用setAutoRead(true);
                 ctx.channel().eventLoop().schedule(enableAutoReadTask, 1, TimeUnit.SECONDS);
             }
             // still let the exceptionCaught event flow through the pipeline to give the user
             // a chance to do something with it
+            // 仍然会抛出异常，给业务人员去操作，处理一些事情
             ctx.fireExceptionCaught(cause);
         }
     }

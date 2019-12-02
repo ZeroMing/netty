@@ -45,11 +45,13 @@ import java.util.Map.Entry;
  *
  * <p>The {@link #bind()} methods are useful in combination with connectionless transports such as datagram (UDP).
  * For regular TCP connections, please use the provided {@link #connect()} methods.</p>
+ *
  */
 public class Bootstrap extends AbstractBootstrap<Bootstrap, Channel> {
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(Bootstrap.class);
 
+    /** 默认的地址解析组 */
     private static final AddressResolverGroup<?> DEFAULT_RESOLVER = DefaultAddressResolverGroup.INSTANCE;
 
     private final BootstrapConfig config = new BootstrapConfig(this);
@@ -57,6 +59,7 @@ public class Bootstrap extends AbstractBootstrap<Bootstrap, Channel> {
     @SuppressWarnings("unchecked")
     private volatile AddressResolverGroup<SocketAddress> resolver =
             (AddressResolverGroup<SocketAddress>) DEFAULT_RESOLVER;
+    // Socket地址
     private volatile SocketAddress remoteAddress;
 
     public Bootstrap() { }
@@ -140,7 +143,7 @@ public class Bootstrap extends AbstractBootstrap<Bootstrap, Channel> {
         if (remoteAddress == null) {
             throw new NullPointerException("remoteAddress");
         }
-        // 校验
+        // 校验 ChannelHandler 不为空
         validate();
         return doResolveAndConnect(remoteAddress, config.localAddress());
     }
@@ -164,7 +167,7 @@ public class Bootstrap extends AbstractBootstrap<Bootstrap, Channel> {
 
         //开始 调用 初始化和 注册
         final ChannelFuture regFuture = initAndRegister();
-        //获取channel
+        // 获取channel
         final Channel channel = regFuture.channel();
         // 判断注册是否完成
         if (regFuture.isDone()) {
@@ -172,10 +175,11 @@ public class Bootstrap extends AbstractBootstrap<Bootstrap, Channel> {
             if (!regFuture.isSuccess()) {
                 return regFuture;
             }
-            //  注册成功，将channle产生的newPromise作为参数
+            //  注册成功，将 channle产生的 newPromise 作为参数
             return doResolveAndConnect0(channel, remoteAddress, localAddress, channel.newPromise());
         } else {
-            // Registration future is almost always fulfilled already, but just in case it's not.
+            // Registration future is almost always fulfilled already,
+            // but just in case it's not.
             final PendingRegistrationPromise promise = new PendingRegistrationPromise(channel);
             // 注册监听
             regFuture.addListener(new ChannelFutureListener() {
@@ -209,13 +213,14 @@ public class Bootstrap extends AbstractBootstrap<Bootstrap, Channel> {
             // 地址解析器
             final AddressResolver<SocketAddress> resolver = this.resolver.getResolver(eventLoop);
 
+            // 如果不支持解析改地址或者地址已经被解析完成
             if (!resolver.isSupported(remoteAddress) || resolver.isResolved(remoteAddress)) {
                 // Resolver has no idea about what to do with the specified remote address or it's resolved already.
-                // 继续调用
+                // ##### 继续调用
                 doConnect(remoteAddress, localAddress, promise);
                 return promise;
             }
-
+            // 解析地址
             final Future<SocketAddress> resolveFuture = resolver.resolve(remoteAddress);
 
             if (resolveFuture.isDone()) {
@@ -227,12 +232,14 @@ public class Bootstrap extends AbstractBootstrap<Bootstrap, Channel> {
                     promise.setFailure(resolveFailureCause);
                 } else {
                     // Succeeded to resolve immediately; cached? (or did a blocking lookup)
+                    // ##### 继续调用
                     doConnect(resolveFuture.getNow(), localAddress, promise);
                 }
                 return promise;
             }
 
             // Wait until the name resolution is finished.
+            // 等待地址解析完成
             resolveFuture.addListener(new FutureListener<SocketAddress>() {
                 @Override
                 public void operationComplete(Future<SocketAddress> future) throws Exception {
@@ -240,6 +247,7 @@ public class Bootstrap extends AbstractBootstrap<Bootstrap, Channel> {
                         channel.close();
                         promise.setFailure(future.cause());
                     } else {
+                        // ##### 继续调用
                         doConnect(future.getNow(), localAddress, promise);
                     }
                 }
@@ -256,15 +264,18 @@ public class Bootstrap extends AbstractBootstrap<Bootstrap, Channel> {
         // This method is invoked before channelRegistered() is triggered.
         // Give user handlers a chance to set up the pipeline in its channelRegistered() implementation.
         final Channel channel = connectPromise.channel();
+        // 返回被注册到 Channel 上的 EventLoop，然后开启一个线程去执行任务
         channel.eventLoop().execute(new Runnable() {
             @Override
             public void run() {
+                // 如果本地地址为空，说明地址解析还没有完成，将connectPromise传进去，等待解析完成后，继续执行
                 if (localAddress == null) {
                     channel.connect(remoteAddress, connectPromise);
                 } else {
                     // channel 通道
                     channel.connect(remoteAddress, localAddress, connectPromise);
                 }
+                // 绑定监听
                 connectPromise.addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
             }
         });
@@ -273,7 +284,9 @@ public class Bootstrap extends AbstractBootstrap<Bootstrap, Channel> {
     @Override
     @SuppressWarnings("unchecked")
     void init(Channel channel) throws Exception {
+        // 获取管道
         ChannelPipeline p = channel.pipeline();
+        // 将处理器加入到管道中
         p.addLast(config.handler());
 
         final Map<ChannelOption<?>, Object> options = options0();
